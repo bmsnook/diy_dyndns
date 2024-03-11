@@ -1,60 +1,71 @@
 #!/bin/bash
 
-mydomain="yourdomain.dom"
-myhostname="gateway"
-host1="host1"
-host2="host2"
-logdest="local7.info"
-gdapikey="$(/usr/local/bin/aws secretsmanager get-secret-value \
+DDOMAIN="yourdomain.dom"
+HOSTLIST="gateway host1 host2"
+LOGDEST="local7.info"
+CURLPATH="/usr/bin/curl"
+CNX_IP="$("${CURLPATH}" -s "https://api.ipify.org")"
+if [[ -z $CNX_IP ]]; then
+	logger -p $LOGDEST "ERROR: could not get current connection IP"
+	exit -1
+fi
+
+## NOTE: GoDaddy API returns JSON output; process to extract the IP.
+##   TIMTOWTDI. Choose the last command unless you don't have 'jq' installed;
+##   then choose the next last command
+##     ... | cut -d ',' -f 1 | tr -d '"' | cut -d ":" -f 2
+##     ... | awk -F'[:,]' '{ip=gensub("[][{}\"]","","g",$2);print ip}'
+##     ... | awk -F'[:,]' '{ip=gensub("\"","","g",$2);print ip}'
+##     ... | awk -F'[:,]' '{gsub(/"/,"");print $2}'
+##     ... | jq -r '.[].data'
+## 
+
+GDAPIKEY="$(/usr/local/bin/aws secretsmanager get-secret-value \
             --secret-id prod/dns/godaddy \
             --query SecretString | \
                 jq -r '[.dns_api_key, .dns_api_secret] | join(":")'
            )"
 
+get_dns_ip() {
+    DOMAIN=$1
+    HOST=$2
+    "${CURLPATH}" -s -X GET \
+        -H "Authorization: sso-key ${GDAPIKEY}" \
+        "https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${HOST}" |\
+        jq -r '.[].data'
+}
+set_dns_ip() {
+    DOMAIN=$1
+    HOST=$2
+    IP=$3
+    "${CURLPATH}" -s -X PUT \
+        "https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${HOST}" \
+        -H "Authorization: sso-key ${GDAPIKEY}" \
+        -H "Content-Type: application/json" \
+        -d "[{\"data\": \"${IP}\"}]"
+}
 datestamp_msg() {
     DATETIME="$(date "+%Y-%m-%d %H:%M:%S")"
     printf "${DATETIME} DNS-UPDATE: ${@}\n"
 }
-cur_ip="$(/usr/bin/curl -s "https://api.ipify.org")"
-dnsdata="$(/usr/bin/curl -s \
-            -X GET \
-            -H "Authorization: sso-key ${gdapikey}" \
-            "https://api.godaddy.com/v1/domains/${mydomain}/records/A/${myhostname}"
-          )"
 
-#dns_ip="$(echo $dnsdata | cut -d ',' -f 1 | tr -d '"' | cut -d ":" -f 2)"
-#dns_ip="$(echo $dnsdata | awk -F'[:,]' '{ip=gensub("[][{}\"]","","g",$2);print ip}')"
-#dns_ip="$(echo $dnsdata | awk -F'[:,]' '{ip=gensub("\"","","g",$2);print ip}')"
-#dns_ip="$(echo $dnsdata | awk -F'[:,]' '{gsub(/"/,"");print $2}')"
-dns_ip="$(printf ${dnsdata} | jq -r '.[].data')"
-#echo "`date '+%Y-%m-%d %H:%M:%S'` - Current External IP is $cur_ip, GoDaddy DNS IP is $dns_ip"
-datestamp_msg "hostname ${myhostname}.${mydomain} current IP: ${cur_ip} and DNS IP: ${dns_ip}"
 
-if [ "$dns_ip" != "$cur_ip" -a "$cur_ip" != "" ]; then
-    printf "IP has changed! Updating GoDaddy from \"${dns_ip}\" to \"${cur_ip}\"\n"
-    ## gateway
-    /usr/bin/curl -s -X PUT \
-        "https://api.godaddy.com/v1/domains/${mydomain}/records/A/${myhostname}" \
-        -H "Authorization: sso-key ${gdapikey}" \
-        -H "Content-Type: application/json" \
-        -d "[{\"data\": \"${cur_ip}\"}]" && \
-    logger -p $logdest "SUCCESS: Changed IP for ${myhostname}.${mydomain} from \"${dns_ip}\" to \"${cur_ip}\"" || \
-    logger -p $logdest "FAILURE: ERROR updating ${myhostname}.${mydomain} from \"${dns_ip}\" to \"${cur_ip}\""
-    ## host1
-    /usr/bin/curl -s -X PUT \
-        "https://api.godaddy.com/v1/domains/${mydomain}/records/A/${host1}" \
-        -H "Authorization: sso-key ${gdapikey}" \
-        -H "Content-Type: application/json" \
-        -d "[{\"data\": \"${cur_ip}\"}]" && \
-    logger -p $logdest "SUCCESS: Changed IP for ${host1}.${mydomain} from \"${dns_ip}\" to \"${cur_ip}\"" || \
-    logger -p $logdest "FAILURE: ERROR updating ${host1}.${mydomain} from \"${dns_ip}\" to \"${cur_ip}\""
-    ## host2
-    /usr/bin/curl -s -X PUT \
-        "https://api.godaddy.com/v1/domains/${mydomain}/records/A/${host2}" \
-        -H "Authorization: sso-key ${gdapikey}" \
-        -H "Content-Type: application/json" \
-        -d "[{\"data\": \"${cur_ip}\"}]" && \
-    logger -p $logdest "SUCCESS: Changed IP for ${host2}.${mydomain} from \"${dns_ip}\" to \"${cur_ip}\"" || \
-    logger -p $logdest "FAILURE: ERROR updating ${host2}.${mydomain} from \"${dns_ip}\" to \"${cur_ip}\""
-fi
+
+for HHOST in $(printf "%s\n" ${HOSTLIST}); do
+## debug
+#datestamp_msg "hostname ${HHOST}.${DDOMAIN} current IP: ${CNX_IP} and DNS IP: ${DNS_IP}"
+    DNS_IP="$(get_dns_ip ${DDOMAIN} ${HHOST})"
+
+    if [ "$DNS_IP" != "$CNX_IP" -a "$CNX_IP" != "" ]; then
+        printf "IP changed: updating DNS from \"${DNS_IP}\" to \"${CNX_IP}\"\n"
+        set_dns_ip ${DDOMAIN} ${HHOST} ${CNX_IP}
+		sleep 5
+		DNS_IP_AFTER="$(get_dns_ip ${DDOMAIN} ${HHOST})"
+		if [ "$DNS_IP_AFTER" != "$CNX_IP" ]; then
+			logger -p $LOGDEST "ERROR: change ${HHOST}.${DDOMAIN} from \"${DNS_IP}\" to \"${CNX_IP}\" FAILED"
+		else
+			logger -p $LOGDEST "SUCCESS: changed ${HHOST}.${DDOMAIN} from \"${DNS_IP}\" to \"${CNX_IP}\""
+		fi
+    fi
+done
 
