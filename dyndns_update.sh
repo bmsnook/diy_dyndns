@@ -57,7 +57,7 @@ for HHOST in $(printf "%s\n" ${HOSTLIST}); do
     DNS_IP="$(get_dns_ip ${DDOMAIN} ${HHOST})"
 
     if [ "$DNS_IP" != "$CNX_IP" -a "$CNX_IP" != "" ]; then
-        printf "IP changed: updating DNS for \"${HHOST}\.${DDOMAIN}\" from \"${DNS_IP}\" to \"${CNX_IP}\"\n"
+        printf "IP changed: updating DNS for \"${HHOST}.${DDOMAIN}\" from \"${DNS_IP}\" to \"${CNX_IP}\"\n"
         set_dns_ip ${DDOMAIN} ${HHOST} ${CNX_IP}
 		sleep 5
 		DNS_IP_AFTER="$(get_dns_ip ${DDOMAIN} ${HHOST})"
