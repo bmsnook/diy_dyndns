@@ -1,7 +1,7 @@
 # diy_dyndns - dynu.com
 
 
-References:
+## References (Main):
 
 https://www.dynu.com/en-US/Support/API
 
@@ -26,7 +26,7 @@ https://developer.hashicorp.com/terraform/language/functions/jsondecode
 https://discuss.hashicorp.com/t/extract-key-value-from-json-and-populate-list-in-terraform/7825/4
 
 
-### (while debugging and troubleshooting)
+### References (while debugging and troubleshooting)
 
 https://til.hashrocket.com/posts/uv0bjiokwk-use-jq-to-filter-objects-list-with-regex
 
