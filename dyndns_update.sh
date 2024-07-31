@@ -6,8 +6,8 @@ LOGDEST="local7.info"
 CURLPATH="/usr/bin/curl"
 CNX_IP="$("${CURLPATH}" -s "https://api.ipify.org")"
 if [[ -z $CNX_IP ]]; then
-	logger -p $LOGDEST "ERROR: could not get current connection IP"
-	exit -1
+    logger -p $LOGDEST "ERROR: could not get current connection IP"
+    exit -1
 fi
 
 ## NOTE: GoDaddy API returns JSON output; process to extract the IP.
@@ -59,13 +59,13 @@ for HHOST in $(printf "%s\n" ${HOSTLIST}); do
     if [ "$DNS_IP" != "$CNX_IP" -a "$CNX_IP" != "" ]; then
         printf "IP changed: updating DNS for \"${HHOST}.${DDOMAIN}\" from \"${DNS_IP}\" to \"${CNX_IP}\"\n"
         set_dns_ip ${DDOMAIN} ${HHOST} ${CNX_IP}
-		sleep 5
-		DNS_IP_AFTER="$(get_dns_ip ${DDOMAIN} ${HHOST})"
-		if [ "$DNS_IP_AFTER" != "$CNX_IP" ]; then
-			logger -p $LOGDEST "ERROR: change ${HHOST}.${DDOMAIN} from \"${DNS_IP}\" to \"${CNX_IP}\" FAILED"
-		else
-			logger -p $LOGDEST "SUCCESS: changed ${HHOST}.${DDOMAIN} from \"${DNS_IP}\" to \"${CNX_IP}\""
-		fi
+        sleep 5
+        DNS_IP_AFTER="$(get_dns_ip ${DDOMAIN} ${HHOST})"
+        if [ "$DNS_IP_AFTER" != "$CNX_IP" ]; then
+            logger -p $LOGDEST "ERROR: change ${HHOST}.${DDOMAIN} from \"${DNS_IP}\" to \"${CNX_IP}\" FAILED"
+        else
+            logger -p $LOGDEST "SUCCESS: changed ${HHOST}.${DDOMAIN} from \"${DNS_IP}\" to \"${CNX_IP}\""
+        fi
     fi
 done
 
