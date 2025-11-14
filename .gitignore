@@ -53,6 +53,7 @@ Thumbs.db
 # Temporary, Backup, etc.
 *~
 bin/**
+lib/**
 tmp/**
 tmp/**/*
 output
@@ -79,6 +80,7 @@ __pycache__/
 ## 
 venv
 .venv
+pyvenv.cfg
 
 # Compiled C++ files
 *.out
