@@ -4,8 +4,10 @@
 import boto3
 import argparse
 import json
+import requests
 
 hosted_zones = []
+hosted_zones_ids = {}
 
 def get_hosted_zones():
     """
@@ -36,8 +38,10 @@ def get_hosted_zones():
         if hosted_zones:
             print("AWS Route 53 Hosted Zones:")
             for zone in hosted_zones:
+                print(f"Raw zone data: {zone}")
                 zone_id = zone['Id'].split('/')[-1] # Extract the actual ID
-                zone_name = zone['Name']
+                zone_name = zone['Name'].rstrip('.') # Remove trailing dot
+                hosted_zones_ids[zone_name] = zone_id
                 print(f"  ID: {zone_id}, Name: {zone_name}")
         else:
             print("No hosted zones found in this AWS account.")
@@ -50,15 +54,13 @@ def get_hosted_zone_for_domain(domain_name):
     Given a domain name, find and return the corresponding hosted zone ID.
     If no matching hosted zone is found, return None.
     """
-    for zone in hosted_zones:
-        zone_name = zone['Name'].rstrip('.')  # Remove trailing dot for comparison
+    for zone_name, zone_id in hosted_zones_ids.items():
         if domain_name.endswith(zone_name):
-            return zone['Id'].split('/')[-1]  # Return the actual ID
+            return zone_id
     return None
 
 def get_connection_ip():
     """Retrieve the current connection's public IP address."""
-    import requests
     try:
         response = requests.get('https://api.ipify.org?format=text')
         response.raise_for_status()
