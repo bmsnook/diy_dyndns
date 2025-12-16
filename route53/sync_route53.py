@@ -89,13 +89,6 @@ def get_route53_record_ip(zone_id, record_name):
         print(f"An error occurred while retrieving the A record: {e}")
         return None
 
-# def get_hosted_zones():
-#     """Retrieve and return a list of all hosted zones in Route53."""
-#     try:
-#       client = boto3.client('route53')
-#       response = client.list_hosted_zones()
-#       return response['HostedZones']
-
 # def update_a_record(zone_id, record_name, ip_address, ttl=300):
 #     client = boto3.client('route53')
 #     response = client.change_resource_record_sets(
