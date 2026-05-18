@@ -11,13 +11,22 @@ hosted_zones_ids = {}
 
 DEBUG = False
 
-def init_boto3_route53_client():
-    """Initialize and return a boto3 Route 53 client."""
-    route53_client = boto3.client('route53')
+def init_boto3_route53_client(profile_name=None):
+    """Initialize and return a boto3 Route 53 client.
+
+    If profile_name is provided, use that AWS CLI credential profile.
+    """
     try:
-        if DEBUG: print("Initializing boto3 Route 53 client.")
+        if profile_name:
+            session = boto3.Session(profile_name=profile_name)
+            route53_client = session.client('route53')
+        else:
+            route53_client = boto3.client('route53')
+        if DEBUG:
+            print(f"Initializing boto3 Route 53 client using profile: {profile_name or 'default'}.")
     except Exception as e:
         print(f"An error occurred during boto3 client initialization: {e}")
+        route53_client = boto3.client('route53')
     return route53_client
 
 def get_hosted_zones():
@@ -127,6 +136,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--list-zones', action='store_true', help='List all hosted zones')
     parser.add_argument('-n', '--name-record', metavar='DOMAIN', help='Get hosted zone ID for a domain name')
     parser.add_argument('-s', '--sync-ip', action='store_true', help='Sync the A record IP with the current connection IP for the specified domain')
+    parser.add_argument('-p', '--profile', metavar='PROFILE', help='AWS CLI credential profile name to use for boto3')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug output')
     # parser.add_argument('zone_id', help='The ID of the hosted zone')
     # parser.add_argument('record_name', help='The name of the A record to update')
@@ -159,7 +169,7 @@ if __name__ == "__main__":
 # """
 
 if __name__ == "__main__":
-    client = init_boto3_route53_client()
+    client = init_boto3_route53_client(args.profile)
     get_hosted_zones()
     if args.list_zones:
         print_hosted_zones()
